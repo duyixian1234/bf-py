@@ -1,6 +1,7 @@
-from unittest import TestCase, main
-from vm import execute
 from io import StringIO
+from unittest import TestCase, main
+
+from brainfuck import execute
 
 
 class TestExecute(TestCase):
