@@ -16,7 +16,6 @@ class Instruction:
         return self.index + 1
 
 
-
 class Increment(Instruction):
     def _execute(self):
         self.vm.memory[self.vm.pointer] += 1
@@ -46,9 +45,11 @@ class Write(Instruction):
     def _execute(self):
         self.vm.stdout.write(chr(self.vm.memory[self.vm.pointer]))
 
+
 @dataclass
 class LoopEnd(Instruction):
-    jump_to:int
+    jump_to: int
+
     def _execute(self):
         if self.vm.memory[self.vm.pointer] == 0:
             return self.index + 1
@@ -57,9 +58,11 @@ class LoopEnd(Instruction):
     def execute(self) -> int:
         return self._execute()
 
+
 @dataclass
 class LoopStart(Instruction):
-    jump_to:int
+    jump_to: int
+
     def _execute(self):
         if self.vm.memory[self.vm.pointer] != 0:
             return self.index + 1
@@ -69,9 +72,21 @@ class LoopStart(Instruction):
         return self._execute()
 
 
+INSTRUCTION_MAPPING = {
+    ">": MoveRight,
+    "<": MoveLeft,
+    "+": Increment,
+    "-": Decrement,
+    ".": Write,
+    ",": Read,
+    "[": LoopStart,
+    "]": LoopEnd,
+}
+
+
 @dataclass
 class VirtualMachine:
-    memory: list[int] = field(default_factory=lambda: [0] * 3000,repr=False)
+    memory: bytearray = field(default_factory=lambda: bytearray(30000), repr=False)
     instructions: list[Instruction] = field(default_factory=list)
     pointer: int = 0
     stdin: TextIO = sys.stdin
@@ -88,33 +103,23 @@ class VirtualMachine:
     def compile(self, code: str):
         self.clear()
         index = 0
-        valids = set("><+-.,[]")
         left = -1
         for ch in code:
-            if ch not in valids:
-                continue
-            match ch:
-                case ">":
-                    self.instructions.append(MoveRight(self, index))
-                case "<":
-                    self.instructions.append(MoveLeft(self, index))
-                case "+":
-                    self.instructions.append(Increment(self, index))
-                case "-":
-                    self.instructions.append(Decrement(self, index))
-                case ".":
-                    self.instructions.append(Write(self, index))
-                case ",":
-                    self.instructions.append(Read(self, index))
-                case "[":
-                    self.instructions.append(LoopStart(self, index,-1))
+            instruction = INSTRUCTION_MAPPING.get(ch)
+            match instruction:
+                case None:
+                    pass
+                case x if x == LoopStart:
                     left = index
-                case "]":
-                    self.instructions.append(LoopEnd(self, index, left))
+                    self.instructions.append(LoopStart(self, index, -1))
+                case x if x == LoopEnd:
                     assert left != -1, "Unmatched ]"
                     setattr(self.instructions[left], "jump_to", index)
+                    self.instructions.append(LoopEnd(self, index, jump_to=left))
                     left = -1
-            index += 1
+                case _:
+                    self.instructions.append(instruction(self, index))
+            index += bool(instruction)
         assert left == -1, "Unmatched ["
 
     def run(self):
