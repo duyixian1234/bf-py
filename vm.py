@@ -1,9 +1,10 @@
 from dataclasses import dataclass, field
-from typing import TextIO
+from typing import TextIO, Type
 import sys
 import os
 
 MEMORY_SIZE = int(os.getenv("MEMORY_SIZE", 30000))
+
 
 @dataclass
 class Instruction:
@@ -40,12 +41,12 @@ class MoveLeft(Instruction):
 
 class Read(Instruction):
     def _execute(self):
-        self.vm.memory[self.vm.pointer] = ord(self.vm.stdin.read(1))
+        self.vm.memory[self.vm.pointer] = ord(self.vm.input.read(1))
 
 
 class Write(Instruction):
     def _execute(self):
-        self.vm.stdout.write(chr(self.vm.memory[self.vm.pointer]))
+        self.vm.output.write(chr(self.vm.memory[self.vm.pointer]))
 
 
 @dataclass
@@ -63,7 +64,7 @@ class LoopEnd(Instruction):
 
 @dataclass
 class LoopStart(Instruction):
-    jump_to: int
+    jump_to: int | None
 
     def _execute(self):
         if self.vm.memory[self.vm.pointer] != 0:
@@ -74,7 +75,7 @@ class LoopStart(Instruction):
         return self._execute()
 
 
-INSTRUCTION_MAPPING = {
+INSTRUCTION_MAPPING: dict[str, Type[Instruction]] = {
     ">": MoveRight,
     "<": MoveLeft,
     "+": Increment,
@@ -88,11 +89,13 @@ INSTRUCTION_MAPPING = {
 
 @dataclass
 class VirtualMachine:
-    memory: bytearray = field(default_factory=lambda: bytearray(MEMORY_SIZE), repr=False)
+    memory: bytearray = field(
+        default_factory=lambda: bytearray(MEMORY_SIZE), repr=False
+    )
     instructions: list[Instruction] = field(default_factory=list)
     pointer: int = 0
-    stdin: TextIO = sys.stdin
-    stdout: TextIO = sys.stdout
+    input: TextIO = field(default=sys.stdin, repr=False)
+    output: TextIO = field(default=sys.stdout, repr=False)
 
     def reset(self):
         self.memory = [0] * MEMORY_SIZE
@@ -105,27 +108,32 @@ class VirtualMachine:
     def compile(self, code: str):
         self.clear()
         index = 0
-        left = -1
+        left: int | None = None
         for ch in code:
             instruction = INSTRUCTION_MAPPING.get(ch)
-            match instruction:
-                case None:
-                    pass
-                case x if x == LoopStart:
-                    left = index
-                    self.instructions.append(LoopStart(self, index, -1))
-                case x if x == LoopEnd:
-                    assert left != -1, "Unmatched ]"
-                    setattr(self.instructions[left], "jump_to", index)
-                    self.instructions.append(LoopEnd(self, index, jump_to=left))
-                    left = -1
-                case _:
-                    self.instructions.append(instruction(self, index))
-            index += bool(instruction)
-        assert left == -1, "Unmatched ["
+            if instruction:
+                match instruction.__qualname__:
+                    case "LoopStart":
+                        left = index
+                        self.instructions.append(LoopStart(self, index, None))
+                    case "LoopEnd":
+                        assert left is not None, "Unmatched ]"
+                        setattr(self.instructions[left], "jump_to", index)
+                        self.instructions.append(LoopEnd(self, index, jump_to=left))
+                        left = None
+                    case _:
+                        self.instructions.append(instruction(self, index))
+                index += bool(instruction)
+        assert left == None, "Unmatched ["
 
     def run(self):
         index = 0
         cnt = len(self.instructions)
         while (index := self.instructions[index].execute()) < cnt:
             pass
+
+
+def execute(code: str, input: TextIO = sys.stdin, output: TextIO = sys.stdout):
+    vm = VirtualMachine(input=input, output=output)
+    vm.compile(code)
+    vm.run()
