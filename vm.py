@@ -1,7 +1,9 @@
 from dataclasses import dataclass, field
 from typing import TextIO
 import sys
+import os
 
+MEMORY_SIZE = int(os.getenv("MEMORY_SIZE", 30000))
 
 @dataclass
 class Instruction:
@@ -86,14 +88,14 @@ INSTRUCTION_MAPPING = {
 
 @dataclass
 class VirtualMachine:
-    memory: bytearray = field(default_factory=lambda: bytearray(30000), repr=False)
+    memory: bytearray = field(default_factory=lambda: bytearray(MEMORY_SIZE), repr=False)
     instructions: list[Instruction] = field(default_factory=list)
     pointer: int = 0
     stdin: TextIO = sys.stdin
     stdout: TextIO = sys.stdout
 
     def reset(self):
-        self.memory = [0] * 30000
+        self.memory = [0] * MEMORY_SIZE
         self.pointer = 0
 
     def clear(self):
