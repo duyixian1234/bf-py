@@ -46,6 +46,14 @@ class TestExecute(TestCase):
         execute("++++++ [ > ++++++++++ < - ] > +++++ .", output=buffer)
         self.assertEqual(buffer.getvalue(), "A")
 
+    def test_add(self):
+        input = StringIO(chr(30) + chr(35))
+        output = StringIO()
+        expect = "A"
+        code = ", > , < [- > + < ] > ."
+        execute(code, input=input, output=output)
+        self.assertEqual(output.getvalue(), expect)
+
 
 if __name__ == "__main__":
     main()
