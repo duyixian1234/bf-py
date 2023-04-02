@@ -31,12 +31,12 @@ class Decrement(Instruction):
 
 class MoveRight(Instruction):
     def _execute(self):
-        self.vm.pointer += 1
+        self.vm.pointer = (self.vm.pointer + 1) % MEMORY_SIZE
 
 
 class MoveLeft(Instruction):
     def _execute(self):
-        self.vm.pointer -= 1
+        self.vm.pointer = (self.vm.pointer - 1) % MEMORY_SIZE
 
 
 class Read(Instruction):
